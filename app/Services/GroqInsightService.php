@@ -14,7 +14,9 @@ class GroqInsightService
      */
     public function generateInsight(array $analysisData): array
     {
-        $prompt = 'Berdasarkan data keuangan berikut, berikan insight singkat dan saran: '
+        $prompt = 'Berdasarkan data keuangan berikut, berikan insight dalam Bahasa Indonesia yang mudah dipahami. '
+            .'Format jawaban harus ringkas, tanpa markdown, maksimal 120 kata, dan mencakup: '
+            .'1) kondisi utama, 2) risiko utama, 3) 1-2 saran paling penting. Data: '
             .json_encode($analysisData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         $apiKey = trim((string) config('services.groq.api_key'));
@@ -63,7 +65,7 @@ class GroqInsightService
             $content = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
 
             return [
-                'insight' => $content !== '' ? $content : $this->fallbackInsight($analysisData),
+                'insight' => $content !== '' ? $this->normalizeInsight($content) : $this->fallbackInsight($analysisData),
                 'model' => $model !== '' ? $model : null,
                 'prompt' => $prompt,
             ];
@@ -95,6 +97,8 @@ class GroqInsightService
     private function fallbackInsight(array $analysisData): string
     {
         $totalExpense = (float) ($analysisData['total_expense'] ?? 0);
+        $netBalance = (float) ($analysisData['net_balance'] ?? 0);
+        $savingsRate = (float) ($analysisData['savings_rate'] ?? 0);
         $topCategory = (string) ($analysisData['top_category'] ?? '');
         $categoryBreakdown = (array) ($analysisData['category_breakdown'] ?? []);
 
@@ -102,16 +106,32 @@ class GroqInsightService
             return 'Belum ada pengeluaran tercatat. Fokus pertahankan arus kas positif sambil menyiapkan rencana tabungan bulanan.';
         }
 
+        if ($netBalance < 0) {
+            return 'Saat ini pengeluaran lebih besar dari pemasukan. Prioritaskan pengurangan biaya di kategori terbesar dan tetapkan batas belanja mingguan.';
+        }
+
         if ($topCategory !== '' && isset($categoryBreakdown[$topCategory])) {
             $portion = (float) $categoryBreakdown[$topCategory];
 
             return sprintf(
-                'Pengeluaran terbesar ada di kategori %s (%.2f%% dari total pengeluaran). Pertimbangkan menetapkan limit mingguan agar pengeluaran lebih terkontrol.',
+                'Arus kas masih positif dengan rasio tabungan %.2f%%. Pengeluaran terbesar ada di kategori %s (%.2f%% dari total pengeluaran). Pertimbangkan limit mingguan agar pengeluaran lebih terkontrol.',
+                $savingsRate,
                 $topCategory,
                 $portion
             );
         }
 
         return 'Pantau rasio pemasukan dan pengeluaran setiap minggu, lalu tentukan target pengurangan biaya untuk kategori yang paling sering muncul.';
+    }
+
+    private function normalizeInsight(string $insight): string
+    {
+        $plain = preg_replace('/\s+/', ' ', trim($insight));
+
+        if (! is_string($plain) || $plain === '') {
+            return $insight;
+        }
+
+        return $plain;
     }
 }

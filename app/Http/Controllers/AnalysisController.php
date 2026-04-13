@@ -90,6 +90,15 @@ class AnalysisController extends Controller
         }
 
         $resolvedUserId = (int) $report->user_id;
+        $totalIncome = (float) $report->total_income;
+        $totalExpense = (float) $report->total_expense;
+        $netBalance = round($totalIncome - $totalExpense, 2);
+        $savingsRate = $totalIncome > 0
+            ? round(($netBalance / $totalIncome) * 100, 2)
+            : 0.0;
+        $financialHealth = $netBalance < 0
+            ? 'Defisit'
+            : ($savingsRate >= 20 ? 'Sehat' : 'Perlu perhatian');
 
         return response()->json([
             'message' => 'Payload terbaru untuk Service C berhasil diambil.',
@@ -102,10 +111,18 @@ class AnalysisController extends Controller
                     'next_since' => $this->fintrackFeedSyncStateService->getSince($resolvedUserId),
                 ],
                 'metrics' => [
-                    'total_income' => (float) $report->total_income,
-                    'total_expense' => (float) $report->total_expense,
+                    'total_income' => $totalIncome,
+                    'total_expense' => $totalExpense,
                     'transaction_count' => (int) $report->transaction_count,
                     'top_category' => $report->top_category,
+                    'net_balance' => $netBalance,
+                    'savings_rate' => $savingsRate,
+                    'financial_health' => $financialHealth,
+                    'summary' => $netBalance < 0
+                        ? 'Pengeluaran lebih besar dari pemasukan. Perlu pengendalian biaya prioritas.'
+                        : ($savingsRate >= 20
+                            ? 'Arus kas positif dengan rasio tabungan yang sehat.'
+                            : 'Arus kas positif, namun rasio tabungan masih perlu ditingkatkan.'),
                 ],
                 'category_breakdown' => $report->categoryBreakdowns
                     ->map(fn ($item): array => [

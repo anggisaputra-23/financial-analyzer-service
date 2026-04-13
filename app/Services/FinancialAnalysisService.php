@@ -18,7 +18,7 @@ class FinancialAnalysisService
 
     /**
      * @param array<int, array{amount: mixed, category: mixed, type: mixed}> $transactions
-     * @return array{total_income: float, total_expense: float, transaction_count: int, top_category: ?string, category_breakdown: array<string, float>, insight: string}
+        * @return array{total_income: float, total_expense: float, transaction_count: int, top_category: ?string, category_breakdown: array<string, float>, net_balance: float, savings_rate: float, financial_health: string, summary: string, insight: string}
      */
     public function analyze(int $userId, array $transactions): array
     {
@@ -32,6 +32,10 @@ class FinancialAnalysisService
             'transaction_count' => $metrics['transaction_count'],
             'top_category' => $metrics['top_category'],
             'category_breakdown' => $metrics['category_breakdown'],
+            'net_balance' => $metrics['net_balance'],
+            'savings_rate' => $metrics['savings_rate'],
+            'financial_health' => $metrics['financial_health'],
+            'summary' => $metrics['summary'],
         ];
 
         return DB::transaction(function () use ($analysisData, $metrics, $normalizedTransactions, $userId): array {
@@ -75,7 +79,7 @@ class FinancialAnalysisService
 
     /**
      * @param Collection<int, array{amount: float, category: string, type: string}> $transactions
-     * @return array{total_income: float, total_expense: float, transaction_count: int, top_category: ?string, category_breakdown: array<string, float>, expense_by_category: array<string, float>}
+        * @return array{total_income: float, total_expense: float, transaction_count: int, top_category: ?string, category_breakdown: array<string, float>, net_balance: float, savings_rate: float, financial_health: string, summary: string, expense_by_category: array<string, float>}
      */
     private function calculateMetrics(Collection $transactions): array
     {
@@ -103,12 +107,24 @@ class FinancialAnalysisService
                 : 0.0)
             ->all();
 
+        $netBalance = round($totalIncome - $totalExpense, 2);
+        $savingsRate = $totalIncome > 0
+            ? round(($netBalance / $totalIncome) * 100, 2)
+            : 0.0;
+
+        $financialHealth = $this->resolveFinancialHealth($netBalance, $savingsRate);
+        $summary = $this->buildSummary($totalIncome, $totalExpense, $netBalance, $savingsRate, $financialHealth);
+
         return [
             'total_income' => $totalIncome,
             'total_expense' => $totalExpense,
             'transaction_count' => $transactionCount,
             'top_category' => $topCategory,
             'category_breakdown' => $categoryBreakdown,
+            'net_balance' => $netBalance,
+            'savings_rate' => $savingsRate,
+            'financial_health' => $financialHealth,
+            'summary' => $summary,
             'expense_by_category' => $expenseByCategory,
         ];
     }
@@ -148,8 +164,8 @@ class FinancialAnalysisService
     }
 
     /**
-     * @param array{total_income: float, total_expense: float, transaction_count: int, top_category: ?string, category_breakdown: array<string, float>, expense_by_category: array<string, float>} $metrics
-     * @return array{total_income: float, total_expense: float, transaction_count: int, top_category: ?string, category_breakdown: array<string, float>, insight: string}
+     * @param array{total_income: float, total_expense: float, transaction_count: int, top_category: ?string, category_breakdown: array<string, float>, net_balance: float, savings_rate: float, financial_health: string, summary: string, expense_by_category: array<string, float>} $metrics
+     * @return array{total_income: float, total_expense: float, transaction_count: int, top_category: ?string, category_breakdown: array<string, float>, net_balance: float, savings_rate: float, financial_health: string, summary: string, insight: string}
      */
     private function buildResponse(array $metrics, string $insight): array
     {
@@ -159,8 +175,53 @@ class FinancialAnalysisService
             'transaction_count' => $metrics['transaction_count'],
             'top_category' => $metrics['top_category'],
             'category_breakdown' => $metrics['category_breakdown'],
+            'net_balance' => $metrics['net_balance'],
+            'savings_rate' => $metrics['savings_rate'],
+            'financial_health' => $metrics['financial_health'],
+            'summary' => $metrics['summary'],
             'insight' => $insight,
         ];
+    }
+
+    private function resolveFinancialHealth(float $netBalance, float $savingsRate): string
+    {
+        if ($netBalance < 0) {
+            return 'Defisit';
+        }
+
+        if ($savingsRate >= 20) {
+            return 'Sehat';
+        }
+
+        return 'Perlu perhatian';
+    }
+
+    private function buildSummary(
+        float $totalIncome,
+        float $totalExpense,
+        float $netBalance,
+        float $savingsRate,
+        string $financialHealth
+    ): string {
+        if ($totalIncome <= 0 && $totalExpense <= 0) {
+            return 'Belum ada transaksi yang cukup untuk dianalisis.';
+        }
+
+        if ($netBalance < 0) {
+            return 'Pengeluaran lebih besar dari pemasukan. Fokuskan penurunan biaya prioritas agar kembali surplus.';
+        }
+
+        if ($financialHealth === 'Sehat') {
+            return sprintf(
+                'Arus kas positif dengan rasio tabungan %.2f%%. Kondisi keuangan cukup sehat dan dapat dipertahankan.',
+                $savingsRate
+            );
+        }
+
+        return sprintf(
+            'Arus kas masih positif, tetapi rasio tabungan baru %.2f%%. Coba tambah porsi tabungan bulanan agar lebih aman.',
+            $savingsRate
+        );
     }
 
     /**

@@ -197,6 +197,28 @@ Mode ini otomatis:
 3. Mengambil transaksi terbaru dari feed Project A
 4. Menyimpan `next_since` untuk run berikutnya
 
+## Penggunaan Dashboard Multi User (UI)
+
+Dashboard sekarang fokus untuk penggunaan otomatis dan multi user.
+
+Langkah pakai:
+
+1. Isi `API Key`.
+2. Isi daftar user ID (misal: `2,3,5`).
+3. Klik `Run Batch Multi User`.
+4. Pilih user pada panel hasil untuk melihat:
+  - source sync
+  - metrik utama
+  - insight AI
+  - payload siap kirim ke Service C
+
+Metrik tambahan yang ditampilkan:
+
+- `net_balance` (arus kas bersih)
+- `savings_rate` (rasio tabungan)
+- `financial_health` (status keuangan)
+- `summary` (ringkasan analisis bahasa sederhana)
+
 ## Endpoint Pull Hasil Terbaru (Untuk Service C)
 
 Service C dapat mengambil hasil analisis terbaru (per user) dari endpoint ini:
