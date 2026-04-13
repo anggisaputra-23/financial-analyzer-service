@@ -322,3 +322,9 @@ php artisan test
 
 - Handover 1 halaman: `docs/HANDOVER_SERVICE2_FEED_SYNC.md`
 - Postman collection: `docs/postman/Service1-Service2-FeedSync.postman_collection.json`
+
+## SQL Files
+
+- Panduan SQL: `database/sql/README.md`
+- Schema only: `database/sql/financial_analyzer_service_schema.sql`
+- Full dump (phpMyAdmin, with data): `database/sql/financial_analyzer_service.sql`
